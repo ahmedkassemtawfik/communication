@@ -46,6 +46,8 @@ using ::testing::_;
 using ::testing::An;
 using ::testing::AnyNumber;
 using ::testing::ByMove;
+using ::testing::Expectation;
+using ::testing::ExpectationSet;
 using ::testing::Invoke;
 using ::testing::Return;
 using ::testing::ReturnRef;
@@ -248,7 +250,9 @@ class SkeletonBaseFixture : public ::testing::Test
 
     void ExpectStopOfferService() noexcept
     {
-        // PrepareStopOffer is called on the skeleton binding and both events
+        // PrepareStopOfferMethods and PrepareStopOffer are called on the skeleton binding and PrepareStopOffer on both
+        // events and fields
+        EXPECT_CALL(*binding_mock_, PrepareStopOfferMethods());
         EXPECT_CALL(*event_binding_mock_1_, PrepareStopOffer());
         EXPECT_CALL(*event_binding_mock_2_, PrepareStopOffer());
         EXPECT_CALL(*field_binding_mock_1_, PrepareStopOffer());
@@ -268,7 +272,9 @@ class SkeletonBaseFixture : public ::testing::Test
 
     void ExpectMinimalStopOfferService() noexcept
     {
-        // PrepareStopOffer is called on the skeleton binding and the single event
+        // PrepareStopOfferMethods and PrepareStopOffer are called on the skeleton binding and PrepareStopOffer on the
+        // single event
+        EXPECT_CALL(*minimal_binding_mock_, PrepareStopOfferMethods());
         EXPECT_CALL(*minimal_event_binding_mock__, PrepareStopOffer());
         EXPECT_CALL(*minimal_binding_mock_, PrepareStopOffer(_));
         EXPECT_CALL(service_discovery_mock_, StopOfferService(_));
@@ -679,6 +685,34 @@ TEST_F(SkeletonBaseStopOfferFixture, PrepareStopOffer)
     skeleton_->StopOfferService();
 }
 
+TEST_F(SkeletonBaseStopOfferFixture, StopOfferServiceStopsMethodCallsBeforeEventsAndFieldsAreStopOffered)
+{
+    // Given a constructed Skeleton with a valid identifier with two events and two fields registered with the skeleton
+    CreateSkeleton(GetInstanceIdentifierWithValidBinding());
+
+    // and given that the initial field values are set and the service is offered
+    ExpectOfferService();
+    std::ignore = skeleton_->dummy_field.Update(kInitialFieldValue);
+    std::ignore = skeleton_->dummy_field2.Update(kInitialFieldValue2);
+    ASSERT_TRUE(skeleton_->OfferService().has_value());
+
+    // Expecting that method calls are stopped on the skeleton binding before any event or field is stop offered, since
+    // field get/set handlers access the field's event binding
+    const Expectation methods_stopped = EXPECT_CALL(*binding_mock_, PrepareStopOfferMethods());
+    ExpectationSet elements_stop_offered{};
+    elements_stop_offered += EXPECT_CALL(*event_binding_mock_1_, PrepareStopOffer()).After(methods_stopped);
+    elements_stop_offered += EXPECT_CALL(*event_binding_mock_2_, PrepareStopOffer()).After(methods_stopped);
+    elements_stop_offered += EXPECT_CALL(*field_binding_mock_1_, PrepareStopOffer()).After(methods_stopped);
+    elements_stop_offered += EXPECT_CALL(*field_binding_mock_2_, PrepareStopOffer()).After(methods_stopped);
+
+    // and that the skeleton binding is stop offered after all events and fields
+    EXPECT_CALL(*binding_mock_, PrepareStopOffer(_)).After(elements_stop_offered);
+    EXPECT_CALL(service_discovery_mock_, StopOfferService(_));
+
+    // When stop offering the service
+    skeleton_->StopOfferService();
+}
+
 TEST_F(SkeletonBaseStopOfferFixture, StopOfferServiceNotifiesRegisteredMethodsThatServiceIsNoLongerOffered)
 {
     // Given a constructed Skeleton with a valid identifier and a method registered directly on it
@@ -738,7 +772,8 @@ TEST_F(SkeletonBaseStopOfferFixture, StopOfferIsNotCalledIfServiceWasNotOffered)
     EXPECT_CALL(*event_binding_mock_1_, PrepareStopOffer()).Times(0);
     EXPECT_CALL(*field_binding_mock_1_, PrepareStopOffer()).Times(0);
 
-    // and that the binding does not get un-initialized (PrepareStopOffer() called)
+    // and that the binding does not get un-initialized (PrepareStopOfferMethods() / PrepareStopOffer() called)
+    EXPECT_CALL(*binding_mock_, PrepareStopOfferMethods()).Times(0);
     EXPECT_CALL(*binding_mock_, PrepareStopOffer(_)).Times(0);
 
     // When stop offering a Service

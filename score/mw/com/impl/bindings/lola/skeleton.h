@@ -112,6 +112,8 @@ class Skeleton final : public SkeletonBinding
         SkeletonFieldBindings& fields,
         std::optional<RegisterShmObjectTraceCallback> register_shm_object_trace_callback) override;
 
+    void PrepareStopOfferMethods() override;
+
     void PrepareStopOffer(std::optional<UnregisterShmObjectTraceCallback> unregister_shm_object_callback) override;
 
     BindingType GetBindingType() const noexcept override

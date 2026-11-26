@@ -59,6 +59,10 @@ class Skeleton final : public SkeletonBinding
         SkeletonFieldBindings& fields,
         std::optional<RegisterShmObjectTraceCallback> register_shm_object_trace_callback) override;
 
+    /// TODO(someip-skeleton-method): Stop method call handling once SOME/IP methods are supported.
+    /// \brief The SOME/IP binding does not support methods yet, so there is nothing to stop.
+    void PrepareStopOfferMethods() override {}
+
     void PrepareStopOffer(
         std::optional<UnregisterShmObjectTraceCallback> unregister_shm_object_trace_callback) override;
 

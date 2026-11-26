@@ -86,6 +86,15 @@ class SkeletonBinding
                                       SkeletonFieldBindings&,
                                       std::optional<RegisterShmObjectTraceCallback>) = 0;
 
+    /// \brief Stops dispatching method calls to the skeleton's method handlers and waits until all method handlers
+    /// that are currently running have returned.
+    ///
+    /// Field getters and setters are methods whose handlers access the field's event. This function is therefore
+    /// called before the events and fields are stop offered, so that no handler can still run while their binding
+    /// state is torn down. It may be called more than once. PrepareStopOffer() also performs it if it wasn't called
+    /// before.
+    virtual void PrepareStopOfferMethods() = 0;
+
     /**
      * \brief In case there are any binding specifics with regards to service withdrawals, this can be implemented
      * within this function. It shall be called before StopOffering() the service.

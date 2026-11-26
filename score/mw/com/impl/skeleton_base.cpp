@@ -249,6 +249,11 @@ auto SkeletonBase::StopOfferService() -> void
         {
             method.second.get().Get().SetServiceOffered(false);
         }
+
+        // Field get/set handlers run on a binding thread and access the field's event. Wait for all running method
+        // handlers and block new ones before the events and fields are stop offered.
+        binding_->PrepareStopOfferMethods();
+
         for (auto& event : events_)
         {
             event.second.get().Get().PrepareStopOffer();

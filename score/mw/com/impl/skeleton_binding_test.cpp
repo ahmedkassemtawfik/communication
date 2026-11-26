@@ -29,6 +29,7 @@ class MySkeleton final : public SkeletonBinding
     {
         return {};
     }
+    void PrepareStopOfferMethods() override {}
     void PrepareStopOffer(std::optional<UnregisterShmObjectTraceCallback>) override {}
     BindingType GetBindingType() const noexcept override
     {

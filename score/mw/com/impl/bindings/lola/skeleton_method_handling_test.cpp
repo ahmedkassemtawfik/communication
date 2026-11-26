@@ -542,6 +542,45 @@ TEST_F(SkeletonPrepareStopOfferFixture, PrepareStopOfferExpiresScopeOfMethodCall
     EXPECT_FALSE(method_call_handler_result_2.has_value());
 }
 
+TEST_F(SkeletonPrepareStopOfferFixture, PrepareStopOfferMethodsExpiresScopeOfMethodCallHandlers)
+{
+    GivenASkeletonWithTwoMethods().WhichCapturesRegisteredMethodSubscribedHandlers().WhichIsOffered();
+
+    // Given that a method call handler is registered for both methods
+    std::optional<IMessagePassingService::MethodCallHandler> method_call_handler_1{};
+    std::optional<IMessagePassingService::MethodCallHandler> method_call_handler_2{};
+    ON_CALL(message_passing_mock_, RegisterMethodCallHandler(kDummyQualityType, foo_proxy_method_identifier_qm_, _, _))
+        .WillByDefault(WithArgs<2>(Invoke([this, &method_call_handler_1](auto method_call_handler) {
+            method_call_handler_1.emplace(method_call_handler);
+            return MethodCallRegistrationGuardFactory::Create(message_passing_mock_,
+                                                              kDummyQualityType,
+                                                              foo_proxy_method_identifier_qm_,
+                                                              method_call_registration_guard_scope_);
+        })));
+    ON_CALL(message_passing_mock_, RegisterMethodCallHandler(kDummyQualityType, dumb_proxy_method_identifier_qm_, _, _))
+        .WillByDefault(WithArgs<2>(Invoke([this, &method_call_handler_2](auto method_call_handler) {
+            method_call_handler_2.emplace(method_call_handler);
+            return MethodCallRegistrationGuardFactory::Create(message_passing_mock_,
+                                                              kDummyQualityType,
+                                                              dumb_proxy_method_identifier_qm_,
+                                                              method_call_registration_guard_scope_);
+        })));
+    ASSERT_TRUE(captured_method_subscribed_handler_qm_.has_value());
+    score::cpp::ignore = std::invoke(captured_method_subscribed_handler_qm_.value(),
+                                     proxy_instance_identifier_qm_,
+                                     test::kAllowedQmMethodConsumer,
+                                     kDummyPid);
+    ASSERT_TRUE(method_call_handler_1.has_value());
+    ASSERT_TRUE(method_call_handler_2.has_value());
+
+    // When calling PrepareStopOfferMethods (without PrepareStopOffer)
+    skeleton_->PrepareStopOfferMethods();
+
+    // Then calling the method call handlers returns an error, indicating that the scope has expired
+    EXPECT_FALSE(std::invoke(method_call_handler_1.value(), 0U).has_value());
+    EXPECT_FALSE(std::invoke(method_call_handler_2.value(), 0U).has_value());
+}
+
 TEST_F(SkeletonPrepareStopOfferFixture, PrepareStopOfferExpiresScopeOfSubscribeMethodHandler)
 {
     GivenASkeletonWithTwoMethods().WhichCapturesRegisteredMethodSubscribedHandlers().WhichIsOffered();
